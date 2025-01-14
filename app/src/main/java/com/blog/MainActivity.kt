@@ -4,9 +4,11 @@ import android.Manifest
 import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Location
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -16,10 +18,15 @@ import android.webkit.WebChromeClient
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.core.app.ActivityCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 
 class MainActivity : ComponentActivity() {
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private lateinit var webView: WebView
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,7 +42,7 @@ class MainActivity : ComponentActivity() {
 
         // 웹뷰 설정
         setContentView(R.layout.activity_main)
-        val webView: WebView = findViewById(R.id.webview)
+        webView = findViewById(R.id.webview)
         webView.webChromeClient = WebChromeClient()
 
         val webSettings: WebSettings = webView.settings
@@ -43,6 +50,8 @@ class MainActivity : ComponentActivity() {
         webSettings.domStorageEnabled = true
         webSettings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         webView.addJavascriptInterface(JavaScriptInterface(this), "Android")
+        webView.addJavascriptInterface(WebAppInterface(), "GPS")
+
         // WebViewClient 설정
         webView.webViewClient = WebViewClient()
 
@@ -59,8 +68,11 @@ class MainActivity : ComponentActivity() {
             }
         }
          // URL 로드
-        webView.loadUrl("https://main.d39hqh4ds9p1ue.amplifyapp.com")
-//        webView.loadUrl("http://127.0.0.1:5173/")
+//        webView.loadUrl("https://main.d39hqh4ds9p1ue.amplifyapp.com")
+        webView.loadUrl("http://127.0.0.1:5173/")
+
+        // FusedLocationProviderClient 초기화
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -100,4 +112,77 @@ class MainActivity : ComponentActivity() {
             }
             filePathCallback = null
         }
+
+    // JavaScript Interface 클래스
+    inner class WebAppInterface {
+        @JavascriptInterface
+        fun getGPSData() {
+            // 위치 권한 확인
+            if (ActivityCompat.checkSelfPermission(
+                    this@MainActivity,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                    this@MainActivity,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                // 위치 권한 요청
+                ActivityCompat.requestPermissions(
+                    this@MainActivity,
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ),
+                    LOCATION_PERMISSION_REQUEST_CODE
+                )
+                return
+            }
+
+            // 위치 데이터 가져오기
+            fusedLocationClient.lastLocation
+                .addOnSuccessListener { location: Location? ->
+                    if (location != null) {
+                        val latitude = location.latitude
+                        val longitude = location.longitude
+                        // JavaScript 함수 호출로 WebView에 데이터 전달
+                        webView.post {
+                            webView.evaluateJavascript("javascript:receiveGPSData('$latitude', '$longitude')", null)
+                        }
+                    } else {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "GPS 데이터를 가져올 수 없습니다.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+                .addOnFailureListener {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "GPS 데이터를 가져오는 중 오류가 발생했습니다.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+        }
+    }
+
+    // 권한 요청 결과 처리
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "위치 권한이 허용되었습니다.", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "위치 권한이 거부되었습니다.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    companion object {
+        private const val LOCATION_PERMISSION_REQUEST_CODE = 1000
+    }
 }
