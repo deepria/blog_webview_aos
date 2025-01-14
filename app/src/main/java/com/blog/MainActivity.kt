@@ -15,6 +15,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -43,7 +44,6 @@ class MainActivity : ComponentActivity() {
         // 웹뷰 설정
         setContentView(R.layout.activity_main)
         webView = findViewById(R.id.webview)
-        webView.webChromeClient = WebChromeClient()
 
         val webSettings: WebSettings = webView.settings
         webSettings.javaScriptEnabled = true
@@ -52,11 +52,43 @@ class MainActivity : ComponentActivity() {
         webView.addJavascriptInterface(JavaScriptInterface(this), "Android")
         webView.addJavascriptInterface(WebAppInterface(), "GPS")
 
-        // WebViewClient 설정
-        webView.webViewClient = WebViewClient()
+         // WebViewClient 설정
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                view?.loadUrl(request?.url.toString())
+                return true
+            }
+        }
 
-        // 파일 선택기 처리
         webView.webChromeClient = object : WebChromeClient() {
+            override fun onCreateWindow(
+                view: WebView?,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: android.os.Message?
+            ): Boolean {
+                val newWebView = WebView(this@MainActivity)
+                newWebView.settings.javaScriptEnabled = true
+
+                // 새 창도 WebView로 처리
+                newWebView.webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(
+                        view: WebView?,
+                        request: WebResourceRequest?
+                    ): Boolean {
+                        view?.loadUrl(request?.url.toString())
+                        return true
+                    }
+                }
+
+                val dialog = android.app.Dialog(this@MainActivity)
+                dialog.setContentView(newWebView)
+                dialog.show()
+
+                (resultMsg?.obj as? WebView.WebViewTransport)?.webView = newWebView
+                resultMsg?.sendToTarget()
+                return true
+            }
             override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,
@@ -184,5 +216,14 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1000
+    }
+
+    // 물리적 뒤로가기 버튼 처리
+    override fun onBackPressed() {
+        if (webView.canGoBack()) {
+            webView.goBack() // WebView에서 뒤로가기
+        } else {
+            super.onBackPressed() // 앱 종료
+        }
     }
 }
