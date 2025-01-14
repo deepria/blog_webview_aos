@@ -68,8 +68,8 @@ class MainActivity : ComponentActivity() {
             }
         }
          // URL 로드
-//        webView.loadUrl("https://main.d39hqh4ds9p1ue.amplifyapp.com")
-        webView.loadUrl("http://127.0.0.1:5173/")
+        webView.loadUrl("https://main.d39hqh4ds9p1ue.amplifyapp.com")
+//        webView.loadUrl("http://127.0.0.1:5173/")
 
         // FusedLocationProviderClient 초기화
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
