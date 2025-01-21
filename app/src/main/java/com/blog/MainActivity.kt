@@ -39,7 +39,11 @@ class MainActivity : ComponentActivity() {
             if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestNotificationPermission()
             }
+            if (checkSelfPermission(Manifest.permission.ACCESS_MEDIA_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                requestLocationPermission()
+            }
         }
+
 
         // 웹뷰 설정
         setContentView(R.layout.activity_main)
@@ -49,6 +53,8 @@ class MainActivity : ComponentActivity() {
         webSettings.javaScriptEnabled = true
         webSettings.domStorageEnabled = true
         webSettings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        webSettings.useWideViewPort = true // 웹페이지의 뷰포트 설정을 활성화
+        webSettings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
         webView.addJavascriptInterface(JavaScriptInterface(this), "Android")
         webView.addJavascriptInterface(WebAppInterface(), "GPS")
 
@@ -69,6 +75,7 @@ class MainActivity : ComponentActivity() {
             ): Boolean {
                 val newWebView = WebView(this@MainActivity)
                 newWebView.settings.javaScriptEnabled = true
+                webSettings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
 
                 // 새 창도 WebView로 처리
                 newWebView.webViewClient = object : WebViewClient() {
@@ -100,7 +107,7 @@ class MainActivity : ComponentActivity() {
             }
         }
          // URL 로드
-        webView.loadUrl("https://main.d39hqh4ds9p1ue.amplifyapp.com")
+        webView.loadUrl("https://nikke-db.pages.dev/")
 //        webView.loadUrl("http://127.0.0.1:5173/")
 
         // FusedLocationProviderClient 초기화
@@ -198,22 +205,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // 권한 요청 결과 처리
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+    private val locationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            val isGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+            if (isGranted) {
                 Toast.makeText(this, "위치 권한이 허용되었습니다.", Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(this, "위치 권한이 거부되었습니다.", Toast.LENGTH_SHORT).show()
             }
         }
-    }
 
+    private fun requestLocationPermission() {
+        locationPermissionLauncher.launch(
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+        )
+    }
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1000
     }
