@@ -25,6 +25,10 @@ class JavaScriptInterface(private val context: Context) {
     init {
         createNotificationChannel()
     }
+
+    @JavascriptInterface
+    fun isApp(): Boolean = true
+
     @JavascriptInterface
     fun downloadBlob(base64Data: String, fileName: String) {
         try {
